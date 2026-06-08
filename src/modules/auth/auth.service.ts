@@ -1,26 +1,79 @@
-import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { AuthSessionService } from 'src/modules/auth/auth-session.service';
+import { LoginDto } from 'src/modules/auth/auth.schema';
+import { JwtAuthService } from 'src/modules/auth/jwt-auth.service';
+import { CreateUserDto, UserResponseDto } from 'src/modules/users/user.schema';
+import { UsersService } from 'src/modules/users/users.service';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly jwtAuthService: JwtAuthService,
+    private readonly authSessionService: AuthSessionService,
+  ) {}
+
+  public async register(dto: CreateUserDto): Promise<{ sucess: boolean }> {
+    await this.usersService.createUser(dto);
+    return { sucess: true };
+  }
+  public async login(
+    dto: LoginDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const user = await this.usersService.getUserByEmailAndVerifyPassword(
+      dto.email,
+      dto.password,
+    );
+    const sessionId = randomUUID();
+
+    const tokenPair = await this.jwtAuthService.getTokenPair({
+      userId: user.id,
+      email: user.email,
+      sessionId,
+    });
+
+    await this.authSessionService.createSession(
+      user.id,
+      sessionId,
+      tokenPair.refreshToken,
+    );
+    return tokenPair;
   }
 
-  findAll() {
-    return `This action returns all auth`;
+  public async logout(userId: string, sessionId: string): Promise<void> {
+    await this.authSessionService.deleteSession(userId, sessionId);
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
+  public async refresh(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const payload = await this.jwtAuthService.verifyAccessToken(refreshToken);
+    const isValid = await this.authSessionService.validateREfreshTOken(
+      payload.userId,
+      payload.sessionId,
+      refreshToken,
+    );
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    const newTokenPair = await this.jwtAuthService.getTokenPair({
+      userId: payload.userId,
+      email: payload.email,
+      sessionId: payload.sessionId,
+    });
+    await this.authSessionService.deleteSession(
+      payload.userId,
+      payload.sessionId,
+    );
+    await this.authSessionService.createSession(
+      payload.userId,
+      payload.sessionId,
+      newTokenPair.refreshToken,
+    );
+    return newTokenPair;
   }
-
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+  public async getUser(userId: string): Promise<UserResponseDto> {
+    return this.usersService.getUserById(userId);
   }
 }
