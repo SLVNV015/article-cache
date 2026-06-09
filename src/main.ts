@@ -3,7 +3,6 @@ import { AppModule } from './app.module';
 import { PinoLogger } from 'nestjs-pino';
 import { GlobalExceptionFilter } from 'src/common/filters/global-exception.filter';
 import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
-import { TransformInterceptor } from 'src/common/interceptors/transform.interceptor';
 import { GracefulShutdownService } from 'src/common/shutdown/graceful-shutdown.service';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { VersioningType } from '@nestjs/common';
@@ -16,18 +15,21 @@ async function bootstrap() {
 
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
   app.useGlobalPipes(new ZodValidationPipe());
-  app.useGlobalInterceptors(new TransformInterceptor());
 
   app.use(cookieParser());
 
-  // app.setGlobalPrefix('/api');
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: '1',
   });
 
-  const swaggerCOnfig = new DocumentBuilder().setTitle('Articles api').build();
-  let document = SwaggerModule.createDocument(app, swaggerCOnfig);
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Articles api')
+    .addBearerAuth()
+    .build();
+  let document = SwaggerModule.createDocument(app, swaggerConfig, {
+    autoTagControllers: true,
+  });
   document = cleanupOpenApiDoc(document);
   SwaggerModule.setup('docs', app, document);
 

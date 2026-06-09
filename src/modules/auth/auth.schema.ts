@@ -23,3 +23,9 @@ export const loginSchema = z.object({
 });
 
 export class LoginDto extends createZodDto(loginSchema) {}
+
+export const accessTokenSchema = z.object({
+  accessToken: z.string().describe('accessToken'),
+});
+
+export class AccessTokenDto extends createZodDto(accessTokenSchema) {}

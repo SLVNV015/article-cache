@@ -4,10 +4,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Request } from 'express';
 import { LoggerModule } from 'nestjs-pino';
 import { GlobalExceptionFilter } from 'src/common/filters/global-exception.filter';
+import { JwtAuthGuard } from 'src/common/guard/jwt-auth.guard';
 import { RedisModule } from 'src/common/redis/redis.module';
 import { ShutdownModule } from 'src/common/shutdown/shutdown.module';
 import { AuthModule } from 'src/modules/auth/auth.module';
 import { UsersModule } from 'src/modules/users/users.module';
+import { ArticlesModule } from 'src/modules/articles/articles.module';
 
 @Module({
   imports: [
@@ -30,9 +32,9 @@ import { UsersModule } from 'src/modules/users/users.module';
         pinoHttp: {
           level: config.get('NODE_ENV') === 'production' ? 'info' : 'debug',
           transport:
-            config.get('NODE_ENV') === 'production'
-              ? undefined
-              : { target: 'pino-pretty' },
+            config.get('NODE_ENV') === 'development'
+              ? { target: 'pino-pretty', options: { colorize: true } }
+              : undefined,
           autoLogging: {
             ignore: (req: Request) => {
               const url = req.url || req.originalUrl;
@@ -61,8 +63,15 @@ import { UsersModule } from 'src/modules/users/users.module';
     RedisModule.forRoot(),
     AuthModule,
     UsersModule,
+    ArticlesModule,
   ],
   controllers: [],
-  providers: [GlobalExceptionFilter],
+  providers: [
+    GlobalExceptionFilter,
+    {
+      provide: 'APP_GUARD',
+      useClass: JwtAuthGuard,
+    },
+  ],
 })
 export class AppModule {}

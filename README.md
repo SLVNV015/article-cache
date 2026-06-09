@@ -1,98 +1,216 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Article Cached API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS приложение с кэшированием статей через Redis и PostgreSQL.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Структура Docker
 
-## Description
+- **dev.docker-compose.yaml** — development окружение (hot reload, volumes)
+- **docker-compose.yaml** — production окружение (оптимизированный образ)
+- **dockerfile** — multi-stage сборка (development, production)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Быстрый старт
 
-## Project setup
+### Development
 
 ```bash
-$ npm install
+# Одной командой: скопировать .env, запустить контейнеры и заполнить БД
+make init
+
+# Или вручную:
+cp .env.example .env
+make dev-build
+make db-seed
 ```
 
-## Compile and run the project
+API доступен на `http://localhost:3000`  
+Swagger документация: `http://localhost:3000/api/docs`
+
+### Production
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Убедитесь что .env настроен с production значениями
+make init-prod
 ```
 
-## Run tests
+## Команды Make
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+make help              # Показать все команды
+make init              # 🚀 Dev: быстрый старт с seed
+make init-prod         # 🚀 Prod: быстрый старт
+make up                # Запустить dev
+make stop              # Остановить контейнеры
+make down              # Удалить контейнеры
+make clean             # Полная очистка (volumes)
+make migrate           # Запустить миграции
+make seed              # Заполнить БД данными
 ```
 
-## Deployment
+## Структура проекта
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+```
+src/
+├── common/                    # Общие утилиты, фильтры, пайпы
+│   ├── cache/                 # Абстрактный сервис кэширования
+│   ├── decorators/            # Декораторы (@Public, @CurrentUser)
+│   ├── filters/               # Exception filters
+│   └── pipes/                 # Validation pipes
+├── database/                  # Конфигурация БД и миграции
+└── modules/                   # Модули приложения
+    ├── articles/              # Модуль статей с кэшированием
+    ├── auth/                  # Аутентификация (JWT, сессии)
+    └── users/                 # Управление пользователями
+```
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Модуль Articles
+
+Модуль статей реализует многоуровневую архитектуру с кэшированием:
+
+### Архитектура
+
+```
+ArticlesController
+        ↓
+   ArticleService ← Orchestrator (координирует работу всех слоёв)
+        ↓
+   ┌────┴────┬─────────────┬──────────────┐
+   ↓         ↓             ↓              ↓
+Database   Cache        Query         Validation
+Service    Service     Service         (Zod)
+```
+
+### Компоненты
+
+#### 1. **ArticleService** (`article.service.ts`)
+Главный оркестратор, координирующий работу всех слоёв:
+- **create/update/delete** → пишет в БД через `ArticlesDatabaseService`
+- **getOne/getList** → читает через кэш (`ArticleCacheService`)
+- При изменениях инвалидирует связанные кэши
+
+#### 2. **ArticleCacheService** (`articles-cache.service.ts`)
+Умный кэш с двухуровневой стратегией:
+- **Cache HIT** ✅ → возвращает данные из Redis (TTL: 300s для статьи, 60s для списка)
+- **Cache MISS** ❌ → блокирует повторные запросы (mutex), идёт в БД
+- **Stale cache** 🔄 → если кэш протух, но кто-то уже обновляет, отдаёт старые данные
+- **Инвалидация** → удаляет по индексам (`all-list`, `author-{id}`)
+
+**Индексы кэша:**
+- `articles:123` — одна статья
+- `articles:list:{hash}` — список с параметрами
+- `articles:index:all-list` — все списки
+- `articles:index:author-123` — списки конкретного автора
+
+#### 3. **QueryArticleService** (`query-article.service.ts`)
+Чистый слой запросов к БД (без бизнес-логики):
+- **findOne** → получение статьи с автором (JOIN)
+- **findMany** → фильтрация, сортировка, пагинация
+- Использует TypeORM QueryBuilder
+
+#### 4. **ArticlesDatabaseService** (`articles-database.service.ts`)
+Слой записи в БД с проверками:
+- **create** → создание статьи
+- **update/remove** → с проверкой прав доступа (только автор может изменять)
+- Логирование всех операций через Pino
+
+#### 5. **ArticlesController** (`articles.controller.ts`)
+REST API эндпоинты:
+- `POST /articles` — создать статью (требует авторизации)
+- `GET /articles` — список с фильтрами (публичный)
+- `GET /articles/:id` — одна статья (публичный)
+- `PATCH /articles/:id` — обновить (требует авторизации, только автор)
+- `DELETE /articles/:id` — удалить (требует авторизации, только автор)
+
+### Фичи
+
+**Кэширование с индексами** — групповая инвалидация при изменении  
+**Stale-while-revalidate** — отдаёт старые данные пока обновляет  
+**Mutex на уровне Redis** — защита от thundering herd  
+**Права доступа** — только автор может редактировать свои статьи  
+**Валидация через Zod** — строгая типизация и автодокументация  
+**Swagger документация** — автогенерация из схем  
+**Пагинация и фильтры** — authorId, dateRange, search, sort  
+**Логирование** — яркие логи кэш-событий (HIT/MISS/STALE)
+
+## Технологии
+
+- **NestJS** - фреймворк
+- **TypeORM** - ORM для PostgreSQL
+- **Redis** - кэширование
+- **JWT** - аутентификация
+- **Zod** - валидация
+- **Pino** - логирование
+
+## API Documentation
+
+Swagger доступен на `/api/docs` после запуска.
+
+## Миграции
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Dev окружение
+make db-migrate
+
+# Prod окружение
+make db-migrate-prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Тестирование
 
-## Resources
+```bash
+make test              # Unit тесты
+make test-cov          # С покрытием
+make test-e2e          # E2E тесты
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## Troubleshooting
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+# Проверить статус контейнеров
+make ps
 
-## Support
+# Открыть shell в контейнере
+make shell
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+# Подключиться к БД
+make db-shell
 
-## Stay in touch
+# Очистить всё и начать заново
+make clean
+make dev-build
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Production Checklist
 
-## License
+- [ ] Настроить production значения в `.env`
+- [ ] Изменить все пароли
+- [ ] Настроить `JWT_SECRET` (минимум 32 символа)
+- [ ] Установить `NODE_ENV=production`
+- [ ] Проверить `LOG_LEVEL=warn` или `error`
+- [ ] Настроить backup для PostgreSQL
+- [ ] Настроить reverse proxy (nginx/traefik)
+- [ ] Включить HTTPS
+- [ ] Настроить мониторинг
+- [ ] Не экспортировать порты БД/Redis наружу (закомментировать `ports` в docker-compose.yaml)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## TODO / Roadmap
+
+### В разработке
+- [ ] **Валидация env переменных** — Zod-схема для проверки окружения при старте
+- [ ] **E2E тесты (supertest)** — полное покрытие API эндпоинтов
+- [ ] **Метрики** — Prometheus + Grafana для мониторинга
+  - Счётчики кэш HIT/MISS
+  - Latency запросов
+  - Количество статей в БД
+- [ ] **Health check endpoint** — `/health` для мониторинга
+
+### Планируется
+- [ ] Rate limiting (Redis-based)
+- [ ] Circuit breaker для внешних сервисов
+- [ ] Graceful shutdown
+- [ ] OpenTelemetry трейсинг
+- [ ] Redis Sentinel для HA
+- [ ] Database read replicas
+
+## Лицензия
+
+UNLICENSED

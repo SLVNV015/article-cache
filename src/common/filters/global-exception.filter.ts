@@ -5,8 +5,10 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { JsonWebTokenError, TokenExpiredError } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { ZodError } from 'zod'; // Импортируем ZodError для проверки
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -20,14 +22,41 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = context.getResponse<Response>();
     const request = context.getRequest<Request>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let errorDetails: any = 'Unhandled exception';
 
-    const message =
-      exception instanceof Error ? exception.message : 'Unhandled exception';
+    // Проверяем, является ли ошибка валидацией Zod
+    if (exception instanceof ZodError) {
+      status = HttpStatus.BAD_REQUEST;
+      errorDetails = exception.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+      }));
+    } else if (exception?.constructor?.name === 'ZodValidationException') {
+      status = HttpStatus.BAD_REQUEST;
+      errorDetails =
+        (exception as any).getZodError?.()?.errors ||
+        (exception as any).message;
+    } else if (exception instanceof TokenExpiredError) {
+      status = HttpStatus.UNAUTHORIZED;
+      errorDetails = 'Token expired' + exception.message + exception.expiredAt;
+    } else if (exception instanceof JsonWebTokenError) {
+      status = HttpStatus.UNAUTHORIZED;
+      errorDetails = 'Token invalid' + exception.message;
+    } else if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      const exceptionResponse = exception.getResponse();
+      errorDetails =
+        typeof exceptionResponse === 'object' && exceptionResponse !== null
+          ? (exceptionResponse as any).message || exceptionResponse
+          : exception.message;
+    }
+    // Любые другие базовые ошибки JS Error
+    else if (exception instanceof Error) {
+      errorDetails = exception.message;
+    }
 
+    // Логируем только критические ошибки 500+
     if (status >= 500) {
       this.logger.error(
         {
@@ -35,16 +64,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           path: request.url,
           method: request.method,
         },
-        message,
+        typeof errorDetails === 'string'
+          ? errorDetails
+          : 'Internal Server Error',
       );
     }
 
-    response.status(status).json({
+    const responseBody = {
       success: false,
-      error: message,
+      statusCode: status,
+      error: errorDetails,
       path: request.url,
       method: request.method,
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    response
+      .header('Content-Type', 'application/json')
+      .status(status)
+      .send(JSON.stringify(responseBody, null, 2));
   }
 }

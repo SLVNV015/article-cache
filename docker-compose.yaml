@@ -2,13 +2,17 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: article-postgres
-    restart: unless-stopped
+    restart: always
+    env_file:
+      - .env
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_DATABASE}
     volumes:
       - postgres_data_article:/var/lib/postgresql/data
+    networks:
+      - article-network
     ports:
       - "5432:5432"
     healthcheck:
@@ -17,32 +21,57 @@ services:
       timeout: 5s
       retries: 5
     user: postgres
+
   redis:
     image: redis:alpine
     container_name: article-redis
-    restart: unless-stopped
+    env_file:
+      - .env
+    restart: always
     volumes:
       - redis_data_article:/data
+    networks:
+      - article-network
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     ports:
       - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
+
   article-api:
-    image: article-cached
+    image: article-cached:prod
     container_name: article-api
+    restart: always
     env_file:
       - .env
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
+      target: production
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
+    networks:
+      - article-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # healthcheck:
+    #   test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
+
 volumes:
   postgres_data_article:
   redis_data_article:
 
+networks:
+  article-network:
+    driver: bridge

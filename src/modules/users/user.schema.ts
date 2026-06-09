@@ -1,4 +1,5 @@
 import { createZodDto } from 'nestjs-zod';
+import { getZodResponce } from 'src/common/utils/setZodResponce';
 import { z } from 'zod';
 
 export const UserBaseSchema = z.object({
@@ -15,8 +16,8 @@ export const UserBaseSchema = z.object({
       'User password. Нет проверки на спецсимволы строчные и прописные буквы. | example: 12345678',
     ),
   name: z.string().describe('User name. | example: John Doe'),
-  createdAt: z
-    .date()
+  createdAt: z.coerce
+    .string()
     .describe('User createdAt. | example: 2023-01-01T00:00:00.000Z'),
 });
 

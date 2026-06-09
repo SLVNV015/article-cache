@@ -42,7 +42,7 @@ export class UsersService {
 
     const hash = await this.hashPassword(createUserDto.password);
 
-    const user = this.userRepo.save({
+    const user = await this.userRepo.save({
       ...createUserDto,
       password: hash,
     });

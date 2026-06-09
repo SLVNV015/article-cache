@@ -48,7 +48,7 @@ export class AuthService {
   public async refresh(
     refreshToken: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const payload = await this.jwtAuthService.verifyAccessToken(refreshToken);
+    const payload = await this.jwtAuthService.verifyRefreshToken(refreshToken);
     const isValid = await this.authSessionService.validateREfreshTOken(
       payload.userId,
       payload.sessionId,
@@ -74,6 +74,6 @@ export class AuthService {
     return newTokenPair;
   }
   public async getUser(userId: string): Promise<UserResponseDto> {
-    return this.usersService.getUserById(userId);
+    return await this.usersService.getUserById(userId);
   }
 }

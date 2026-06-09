@@ -41,7 +41,7 @@ services:
       - .env
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
       target: development
     ports:
       - "3000:3000"

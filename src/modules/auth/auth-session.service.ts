@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from 'src/common/redis/redis.token';
-import argon2 from 'argon2';
+import * as argon2 from 'argon2';
 
 @Injectable()
 export class AuthSessionService {
