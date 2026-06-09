@@ -10,6 +10,10 @@ import { ArticleCacheService } from 'src/modules/articles/articles-cache.service
 import { ArticlesDatabaseService } from 'src/modules/articles/articles-database.service';
 import { QueryArticleService } from 'src/modules/articles/query-article.service';
 
+/**
+ * Главный сервис для работы со статьями.
+ * Координирует взаимодействие между слоями БД, кэша и запросов.
+ */
 @Injectable()
 export class ArticleService {
   constructor(
@@ -18,6 +22,12 @@ export class ArticleService {
     private readonly query: QueryArticleService,
   ) {}
 
+  /**
+   * Создает новую статью.
+   * @param createArticleDto - Данные для создания статьи
+   * @param authorId - ID автора статьи
+   * @returns Объект с флагом успешности операции
+   */
   public async create(
     createArticleDto: CreateArticleDto,
     authorId: string,
@@ -26,6 +36,17 @@ export class ArticleService {
     return { success: true };
   }
 
+  /**
+   * Обновляет существующую статью.
+   * Только автор может обновить свою статью.
+   * После обновления инвалидирует связанные кэши.
+   * @param id - ID статьи
+   * @param authorId - ID автора для проверки прав
+   * @param updateArticleDto - Данные для обновления
+   * @returns Объект с флагом успешности операции
+   * @throws {NotFoundException} Если статья не найдена
+   * @throws {ForbiddenException} Если пользователь не является автором
+   */
   public async update(
     id: string,
     authorId: string,
@@ -36,6 +57,16 @@ export class ArticleService {
     return { success: true };
   }
 
+  /**
+   * Удаляет статью.
+   * Только автор может удалить свою статью.
+   * После удаления инвалидирует связанные кэши.
+   * @param id - ID статьи
+   * @param authorId - ID автора для проверки прав
+   * @returns Объект с флагом успешности операции
+   * @throws {NotFoundException} Если статья не найдена
+   * @throws {ForbiddenException} Если пользователь не является автором
+   */
   public async delete(
     id: string,
     authorId: string,
@@ -45,6 +76,13 @@ export class ArticleService {
     return { success: true };
   }
 
+  /**
+   * Получает одну статью по ID.
+   * Сначала проверяет кэш, затем обращается к БД если данных нет в кэше.
+   * @param id - ID статьи
+   * @returns Данные статьи с информацией об авторе
+   * @throws {NotFoundException} Если статья не найдена
+   */
   public async getOne(id: string): Promise<ArticleResponseDto> {
     const article = await this.cache.getArticle(
       id,
@@ -56,6 +94,12 @@ export class ArticleService {
     return article;
   }
 
+  /**
+   * Получает список статей с фильтрацией и пагинацией.
+   * Сначала проверяет кэш, затем обращается к БД если данных нет в кэше.
+   * @param params - Параметры фильтрации (authorId, даты, поиск, сортировка, пагинация)
+   * @returns Пагинированный список статей с метаданными
+   */
   public async getList(
     params: ArticleFilterDto,
   ): Promise<ArticlePaginatedResponseDto | null> {

@@ -3,6 +3,9 @@ import { Server } from 'http';
 import { Socket } from 'net';
 import pino from 'pino';
 
+/**
+ * @description Сервис для управления процессом завершения работы приложения, обертка. Завершаем прием соединений по http, ws даем время на завершение и уходим
+ */
 @Injectable()
 export class GracefulShutdownService implements BeforeApplicationShutdown {
   private readonly FORCE_TIMEOUT = 15000;

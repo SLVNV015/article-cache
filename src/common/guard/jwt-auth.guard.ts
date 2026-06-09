@@ -8,6 +8,9 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { JwtAuthService } from 'src/modules/auth/jwt-auth.service';
 
+/**
+ * JwtAuthGuard
+ */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(

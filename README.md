@@ -14,22 +14,22 @@ NestJS приложение с кэшированием статей через 
 
 ```bash
 # Одной командой: скопировать .env, запустить контейнеры и заполнить БД
-make init
+make init-prod
 
 # Или вручную:
 cp .env.example .env
-make dev-build
-make db-seed
+docker-compose up -d --build
+npm run seed
 ```
 
 API доступен на `http://localhost:3000`  
 Swagger документация: `http://localhost:3000/api/docs`
 
-### Production
+### Development с hot reload
 
 ```bash
-# Убедитесь что .env настроен с production значениями
-make init-prod
+# Убедитесь что .env настроен  значениями
+make init
 ```
 
 ## Команды Make
@@ -86,6 +86,7 @@ Service    Service     Service         (Zod)
 - **create/update/delete** → пишет в БД через `ArticlesDatabaseService`
 - **getOne/getList** → читает через кэш (`ArticleCacheService`)
 - При изменениях инвалидирует связанные кэши
+Попытка в cqrs для бедных.
 
 #### 2. **ArticleCacheService** (`articles-cache.service.ts`)
 Умный кэш с двухуровневой стратегией:
@@ -114,11 +115,6 @@ Service    Service     Service         (Zod)
 
 #### 5. **ArticlesController** (`articles.controller.ts`)
 REST API эндпоинты:
-- `POST /articles` — создать статью (требует авторизации)
-- `GET /articles` — список с фильтрами (публичный)
-- `GET /articles/:id` — одна статья (публичный)
-- `PATCH /articles/:id` — обновить (требует авторизации, только автор)
-- `DELETE /articles/:id` — удалить (требует авторизации, только автор)
 
 ### Фичи
 
@@ -143,6 +139,19 @@ REST API эндпоинты:
 ## API Documentation
 
 Swagger доступен на `/api/docs` после запуска.
+
+## TODO 
+
+### В разработке
+- [ ] **Валидация env переменных** — Zod-схема для проверки окружения при старте, вынести ttl кеша и jwt отдельно - сейчас захардкожены. 
+- [ ] **E2E тесты (supertest)** — полное покрытие API эндпоинтов
+- [ ] **Метрики** — Prometheus + Grafana для мониторинга
+  - Счётчики кэш HIT/MISS
+  - Latency запросов
+  - Количество статей в БД
+- [ ] **Health check endpoint** — `/health` для мониторинга
+- [ ] **Cors** — пока фронта нет и корс не нужен 
+- [ ] Rate limiting (Redis-based)
 
 ## Миграции
 
@@ -178,38 +187,6 @@ make db-shell
 make clean
 make dev-build
 ```
-
-## Production Checklist
-
-- [ ] Настроить production значения в `.env`
-- [ ] Изменить все пароли
-- [ ] Настроить `JWT_SECRET` (минимум 32 символа)
-- [ ] Установить `NODE_ENV=production`
-- [ ] Проверить `LOG_LEVEL=warn` или `error`
-- [ ] Настроить backup для PostgreSQL
-- [ ] Настроить reverse proxy (nginx/traefik)
-- [ ] Включить HTTPS
-- [ ] Настроить мониторинг
-- [ ] Не экспортировать порты БД/Redis наружу (закомментировать `ports` в docker-compose.yaml)
-
-## TODO / Roadmap
-
-### В разработке
-- [ ] **Валидация env переменных** — Zod-схема для проверки окружения при старте
-- [ ] **E2E тесты (supertest)** — полное покрытие API эндпоинтов
-- [ ] **Метрики** — Prometheus + Grafana для мониторинга
-  - Счётчики кэш HIT/MISS
-  - Latency запросов
-  - Количество статей в БД
-- [ ] **Health check endpoint** — `/health` для мониторинга
-
-### Планируется
-- [ ] Rate limiting (Redis-based)
-- [ ] Circuit breaker для внешних сервисов
-- [ ] Graceful shutdown
-- [ ] OpenTelemetry трейсинг
-- [ ] Redis Sentinel для HA
-- [ ] Database read replicas
 
 ## Лицензия
 

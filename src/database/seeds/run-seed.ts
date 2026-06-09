@@ -3,6 +3,9 @@ import { seedDatabase } from './seed';
 import { User } from 'src/modules/users/user.entity';
 import { Article } from 'src/modules/articles/article.entity';
 
+/**
+ * @description Функция для запуска сидера, env как в примере тут переход на сеть хоста localhost
+ */
 async function run() {
   const databaseUrl = process.env.DATABASE_URL;
 
