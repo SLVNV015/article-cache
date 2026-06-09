@@ -11,8 +11,14 @@ NestJS приложение с кэшированием статей через 
 - **dockerfile** — multi-stage сборка (development, production)
 
 ## Быстрый старт
+*Желательно наличие make*
 
-### Development
+```bash
+# Клонировать репозиторий
+git clone https://github.com/sapl/article-cached.git
+cd article-cached
+
+```
 
 ```bash
 # Одной командой: скопировать .env, запустить контейнеры и заполнить БД
