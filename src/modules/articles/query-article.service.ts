@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { log } from 'console';
 import { Article } from 'src/modules/articles/article.entity';
 import {
   ArticleFilterDto,
@@ -41,6 +40,10 @@ export class QueryArticleService {
     return one ? articleWhitAuthorSchema.parse(one) : null;
   }
 
+  /**
+   * @param params - ArticleFilterDto должны быть провалидированы от slq injection
+   * @returns ArticlePaginatedResponseDto
+   */
   public async findMany(
     params: ArticleFilterDto,
   ): Promise<ArticlePaginatedResponseDto> {
@@ -81,15 +84,14 @@ export class QueryArticleService {
     }
 
     if (params.limit) {
-      qb.limit(params.limit);
+      qb.take(params.limit);
     }
 
     if (params.offset) {
-      qb.offset(params.offset);
+      qb.skip(params.offset);
     }
 
     const result = await qb.getManyAndCount();
-    log(result[0][0]);
 
     const mappedArticles = result[0].map((article) => {
       const dto2: ArticleResponseDto = {

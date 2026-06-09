@@ -2,6 +2,7 @@ import { createZodDto } from 'nestjs-zod';
 import { getPaginatedSchema } from 'src/common/utils/paginaded.schema';
 import z from 'zod';
 
+// для парса ответов.
 export const articleBaseSchema = z.object({
   id: z
     .uuid()
