@@ -2,6 +2,8 @@
 
 NestJS приложение с кэшированием статей через Redis и PostgreSQL.
 
+**Задание** [Задание](https://wild-bean-19b.notion.site/Middle-NestJS-824b413a224f490cb75bd6329888f99c)
+
 ## Структура Docker
 
 - **dev.docker-compose.yaml** — development окружение (hot reload, volumes)
@@ -21,6 +23,7 @@ cp .env.example .env
 docker-compose up -d --build
 npm run seed
 ```
+*В случае повторного сида make упадет, но контейнеры будут крутится здоровыми*
 
 API доступен на `http://localhost:3000`  
 Swagger документация: `http://localhost:3000/api/docs`
