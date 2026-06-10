@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -9,6 +10,7 @@ import {
 } from 'typeorm';
 import { User } from 'src/modules/users/user.entity';
 
+@Index(['authorId', 'createdAt'])
 @Entity('articles')
 export class Article {
   @PrimaryGeneratedColumn('uuid')
@@ -30,9 +32,11 @@ export class Article {
   @Column({ type: 'uuid', name: 'author_id' })
   authorId!: string;
 
+  @Index()
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt!: Date;
 
+  @Index()
   @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
   updatedAt!: Date;
 }
