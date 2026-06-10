@@ -2,7 +2,7 @@
 
 NestJS приложение с кэшированием статей через Redis и PostgreSQL.
 
-**Задание** [Задание](https://wild-bean-19b.notion.site/Middle-NestJS-824b413a224f490cb75bd6329888f99c)
+**[Ссылка на ззадание](https://wild-bean-19b.notion.site/Middle-NestJS-824b413a224f490cb75bd6329888f99c)**
 
 ## Структура Docker
 
@@ -15,7 +15,7 @@ NestJS приложение с кэшированием статей через 
 
 ```bash
 # Клонировать репозиторий
-git clone https://github.com/sapl/article-cached.git
+git clone git@github.com:SLVNV015/article-cache.git
 cd article-cached
 
 ```
